@@ -9,7 +9,7 @@ app = Flask(__name__)
 
 GEMINI_API_KEY      = os.environ.get("GEMINI_API_KEY", "")
 DISCORD_WEBHOOK_URL = os.environ.get("DISCORD_WEBHOOK_URL", "")
-GEMINI_URL = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent"
+GEMINI_URL = "https://generativelanguage.googleapis.com/v1beta/models/gemini-3.1-flash-lite:generateContent"
 
 COLOR_SUCCESS = 0x00FFA3
 COLOR_FAILURE = 0xFF4D6D
