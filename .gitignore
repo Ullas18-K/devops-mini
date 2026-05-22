@@ -8,3 +8,5 @@ dist/
 build/
 .venv/
 venv/
+WINDOWS_JENKINS_FIX.md
+FIXED_SUMMARY.md

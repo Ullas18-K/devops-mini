@@ -21,13 +21,23 @@ pipeline {
         stage('Build App') {
             steps {
                 echo '🔍 Validating project files...'
-                sh '''
-                    echo "── Files ──"
-                    ls -la
-                    echo "── requirements.txt ──"
-                    cat requirements.txt
-                    echo "Skipping python3 syntax check because Jenkins container has no python3"
-                '''
+                script {
+                    if (isUnix()) {
+                        sh '''
+                            echo "── Files ──"
+                            ls -la
+                            echo "── requirements.txt ──"
+                            cat requirements.txt
+                        '''
+                    } else {
+                        bat '''
+                            echo ── Files ──
+                            dir
+                            echo ── requirements.txt ──
+                            type requirements.txt
+                        '''
+                    }
+                }
                 echo '✅ Validation passed.'
             }
         }
@@ -35,16 +45,25 @@ pipeline {
         stage('Docker Build') {
             steps {
                 echo '🐳 Building Docker image...'
-                sh '''
-                    docker stop ${CONTAINER_NAME} 2>/dev/null || true
-                    docker rm ${CONTAINER_NAME} 2>/dev/null || true
-                    docker rmi ${IMAGE_NAME}:latest 2>/dev/null || true
-
-                    docker build -t ${IMAGE_NAME}:latest .
-
-                    echo "── Built image ──"
-                    docker images ${IMAGE_NAME}:latest
-                '''
+                script {
+                    if (isUnix()) {
+                        sh '''
+                            docker stop ${CONTAINER_NAME} 2>/dev/null || true
+                            docker rm ${CONTAINER_NAME} 2>/dev/null || true
+                            docker rmi ${IMAGE_NAME}:latest 2>/dev/null || true
+                            docker build -t ${IMAGE_NAME}:latest .
+                            docker images ${IMAGE_NAME}:latest
+                        '''
+                    } else {
+                        bat '''
+                            docker stop %CONTAINER_NAME% 2>nul
+                            docker rm %CONTAINER_NAME% 2>nul
+                            docker rmi %IMAGE_NAME%:latest 2>nul
+                            docker build -t %IMAGE_NAME%:latest .
+                            docker images %IMAGE_NAME%:latest
+                        '''
+                    }
+                }
                 echo '✅ Docker image built.'
             }
         }
@@ -52,23 +71,29 @@ pipeline {
         stage('Run Container') {
             steps {
                 echo '🚀 Starting container...'
-                sh '''
-                    docker run -d \
-                    --name ${CONTAINER_NAME} \
-                    -p ${APP_PORT}:5000 \
-                    -e GEMINI_API_KEY=${GEMINI_API_KEY} \
-                    --restart unless-stopped \
-                    ${IMAGE_NAME}:latest
+                script {
+                    if (isUnix()) {
+                        sh '''
+                            docker run -d \
+                            --name ${CONTAINER_NAME} \
+                            -p ${APP_PORT}:5000 \
+                            -e GEMINI_API_KEY=${GEMINI_API_KEY} \
+                            --restart unless-stopped \
+                            ${IMAGE_NAME}:latest
 
-                    echo "── Waiting for startup ──"
-                    sleep 3
-
-                    echo "── Health check ──"
-                    curl -sf http://localhost:${APP_PORT}/ && echo "✅ App is UP at http://localhost:${APP_PORT}"
-
-                    echo "── Container logs ──"
-                    docker logs --tail 20 ${CONTAINER_NAME}
-                '''
+                            sleep 3
+                            curl -sf http://localhost:${APP_PORT}/ && echo "✅ App is UP"
+                            docker logs --tail 20 ${CONTAINER_NAME}
+                        '''
+                    } else {
+                        bat '''
+                            docker run -d --name %CONTAINER_NAME% -p %APP_PORT%:5000 -e GEMINI_API_KEY=%GEMINI_API_KEY% --restart unless-stopped %IMAGE_NAME%:latest
+                            timeout /t 3 /nobreak
+                            curl -sf http://localhost:%APP_PORT%/ && echo ✅ App is UP
+                            docker logs --tail 20 %CONTAINER_NAME%
+                        '''
+                    }
+                }
                 echo '✅ Container running!'
             }
         }
@@ -85,7 +110,14 @@ pipeline {
                     error_log    : ""
                 ])
 
-                sh "curl -s -X POST ${BOT_WEBHOOK} -H 'Content-Type: application/json' -d '${payload}' || true"
+                // Write payload to file to avoid shell escaping issues
+                writeFile file: 'webhook-payload.json', text: payload
+                
+                if (isUnix()) {
+                    sh "curl -s -X POST ${BOT_WEBHOOK} -H 'Content-Type: application/json' --data-binary @webhook-payload.json || true"
+                } else {
+                    bat "curl -s -X POST %BOT_WEBHOOK% -H \"Content-Type: application/json\" --data-binary @webhook-payload.json"
+                }
                 echo '✅ Discord notified — build success.'
             }
         }
@@ -119,7 +151,11 @@ pipeline {
                 // Write payload to file to avoid shell escaping issues
                 writeFile file: 'webhook-payload.json', text: payload
                 
-                sh "curl -s -X POST ${BOT_WEBHOOK} -H 'Content-Type: application/json' --data-binary @webhook-payload.json || true"
+                if (isUnix()) {
+                    sh "curl -s -X POST ${BOT_WEBHOOK} -H 'Content-Type: application/json' --data-binary @webhook-payload.json || true"
+                } else {
+                    bat "curl -s -X POST %BOT_WEBHOOK% -H \"Content-Type: application/json\" --data-binary @webhook-payload.json"
+                }
                 echo '❌ Discord notified — build failed with actual error log.'
             }
         }
