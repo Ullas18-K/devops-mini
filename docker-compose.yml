@@ -1,0 +1,28 @@
+version: "3.9"
+
+services:
+
+  neuraldock-app:
+    build:
+      context: .
+    container_name: neuraldock-app
+    ports:
+      - "5000:5000"
+    env_file:
+      - .env
+    environment:
+      - GEMINI_API_KEY=${GEMINI_API_KEY}
+    restart: unless-stopped
+
+  neuraldock-bot:
+    build:
+      context: ./discord_bot
+    container_name: neuraldock-bot
+    ports:
+      - "6000:6000"
+    env_file:
+      - .env
+    environment:
+      - GEMINI_API_KEY=${GEMINI_API_KEY}
+      - DISCORD_WEBHOOK_URL=${DISCORD_WEBHOOK_URL}
+    restart: unless-stopped

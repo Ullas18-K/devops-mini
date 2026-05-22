@@ -1,0 +1,220 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>NeuralDock — LLM Interface</title>
+  <link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Syne:wght@400;600;800&display=swap" rel="stylesheet"/>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --bg: #080b10; --surface: #0e1420; --border: #1e2d45;
+      --accent: #00e5ff; --accent2: #7b2fff; --text: #cdd9f0;
+      --muted: #4a5f7a; --success: #00ffa3; --danger: #ff4d6d;
+      --glow: 0 0 24px rgba(0,229,255,.25);
+    }
+    html, body { height: 100%; background: var(--bg); color: var(--text); font-family: 'Syne', sans-serif; overflow-x: hidden; }
+
+    body::before {
+      content: ''; position: fixed; inset: 0;
+      background-image: linear-gradient(rgba(0,229,255,.04) 1px, transparent 1px), linear-gradient(90deg, rgba(0,229,255,.04) 1px, transparent 1px);
+      background-size: 40px 40px; animation: gridDrift 20s linear infinite; pointer-events: none; z-index: 0;
+    }
+    @keyframes gridDrift { to { background-position: 40px 40px; } }
+
+    body::after {
+      content: ''; position: fixed; top: -200px; right: -200px; width: 500px; height: 500px; border-radius: 50%;
+      background: radial-gradient(circle, rgba(123,47,255,.18) 0%, transparent 70%); pointer-events: none; z-index: 0;
+    }
+
+    .wrapper { position: relative; z-index: 1; min-height: 100vh; display: flex; flex-direction: column; align-items: center; padding: 48px 20px 60px; }
+
+    header { text-align: center; margin-bottom: 48px; animation: fadeDown .6s ease both; }
+    .logo-row { display: flex; align-items: center; justify-content: center; gap: 12px; margin-bottom: 10px; }
+    .logo-icon { width: 36px; height: 36px; border: 2px solid var(--accent); border-radius: 8px; display: grid; place-items: center; box-shadow: var(--glow); }
+    .logo-icon span { width: 12px; height: 12px; background: var(--accent); border-radius: 50%; box-shadow: 0 0 10px var(--accent); animation: pulse 2s ease-in-out infinite; }
+    @keyframes pulse { 0%,100%{transform:scale(1);opacity:1} 50%{transform:scale(1.4);opacity:.6} }
+
+    h1 { font-size: clamp(2rem,5vw,3.2rem); font-weight: 800; letter-spacing: -1px; background: linear-gradient(135deg, var(--accent) 0%, var(--accent2) 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; }
+    .tagline { font-family: 'Space Mono', monospace; font-size: .78rem; color: var(--muted); letter-spacing: 3px; text-transform: uppercase; margin-top: 6px; }
+
+    .badges { display: flex; gap: 10px; flex-wrap: wrap; justify-content: center; margin-top: 18px; }
+    .badge { font-family: 'Space Mono', monospace; font-size: .65rem; padding: 4px 10px; border-radius: 4px; border: 1px solid var(--border); color: var(--muted); letter-spacing: 1px; text-transform: uppercase; }
+    .badge.live { border-color: var(--success); color: var(--success); }
+    .badge.live::before { content: '● '; }
+
+    .card { width: 100%; max-width: 760px; background: var(--surface); border: 1px solid var(--border); border-radius: 16px; padding: 36px; animation: fadeUp .7s ease both .1s; position: relative; overflow: hidden; }
+    .card::before { content: ''; position: absolute; top: 0; left: 0; right: 0; height: 2px; background: linear-gradient(90deg, var(--accent2), var(--accent)); }
+
+    .section-label { font-family: 'Space Mono', monospace; font-size: .65rem; letter-spacing: 3px; text-transform: uppercase; color: var(--muted); margin-bottom: 10px; display: flex; align-items: center; gap: 8px; }
+    .section-label::before { content: ''; width: 20px; height: 1px; background: var(--border); }
+
+    .input-area { width: 100%; min-height: 130px; background: var(--bg); border: 1px solid var(--border); border-radius: 10px; padding: 16px 18px; color: var(--text); font-family: 'Space Mono', monospace; font-size: .88rem; line-height: 1.7; resize: vertical; transition: border-color .2s, box-shadow .2s; outline: none; }
+    .input-area::placeholder { color: var(--muted); }
+    .input-area:focus { border-color: var(--accent); box-shadow: 0 0 0 3px rgba(0,229,255,.1); }
+
+    .controls { display: flex; align-items: center; justify-content: space-between; margin-top: 16px; gap: 12px; flex-wrap: wrap; }
+    .char-count { font-family: 'Space Mono', monospace; font-size: .7rem; color: var(--muted); }
+    .char-count span { color: var(--accent); }
+
+    .btn { padding: 12px 28px; border-radius: 8px; border: none; font-family: 'Syne', sans-serif; font-weight: 700; font-size: .9rem; cursor: pointer; display: flex; align-items: center; gap: 10px; transition: all .2s; }
+    .btn-primary { background: linear-gradient(135deg, var(--accent2), var(--accent)); color: #000; box-shadow: 0 4px 20px rgba(0,229,255,.2); }
+    .btn-primary:hover:not(:disabled) { transform: translateY(-2px); box-shadow: 0 8px 30px rgba(0,229,255,.35); }
+    .btn-primary:disabled { opacity: .5; cursor: not-allowed; transform: none; }
+    .btn-clear { background: transparent; border: 1px solid var(--border); color: var(--muted); font-size: .82rem; padding: 10px 18px; }
+    .btn-clear:hover { border-color: var(--muted); color: var(--text); }
+
+    .divider { display: flex; align-items: center; gap: 14px; margin: 28px 0; color: var(--muted); font-size: .7rem; font-family: 'Space Mono', monospace; letter-spacing: 2px; }
+    .divider::before, .divider::after { content: ''; flex: 1; height: 1px; background: var(--border); }
+
+    .response-box { display: none; background: var(--bg); border: 1px solid var(--border); border-radius: 10px; padding: 22px; animation: fadeUp .4s ease both; }
+    .response-box.visible { display: block; }
+    .response-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 14px; }
+    .model-tag { font-family: 'Space Mono', monospace; font-size: .65rem; padding: 3px 10px; border-radius: 4px; background: rgba(0,229,255,.1); border: 1px solid rgba(0,229,255,.2); color: var(--accent); letter-spacing: 1px; text-transform: uppercase; }
+    .copy-btn { background: none; border: none; cursor: pointer; color: var(--muted); font-size: .75rem; font-family: 'Space Mono', monospace; transition: color .2s; display: flex; align-items: center; gap: 6px; }
+    .copy-btn:hover { color: var(--accent); }
+    .response-text { font-family: 'Space Mono', monospace; font-size: .85rem; line-height: 1.9; color: var(--text); white-space: pre-wrap; word-break: break-word; }
+    .response-text.error { color: var(--danger); }
+
+    .loader { display: none; align-items: center; gap: 14px; padding: 20px 0; font-family: 'Space Mono', monospace; font-size: .8rem; color: var(--muted); }
+    .loader.visible { display: flex; }
+    .dots { display: flex; gap: 6px; }
+    .dots span { width: 8px; height: 8px; border-radius: 50%; background: var(--accent); animation: bounce 1.2s ease-in-out infinite; }
+    .dots span:nth-child(2) { animation-delay: .2s; background: var(--accent2); }
+    .dots span:nth-child(3) { animation-delay: .4s; }
+    @keyframes bounce { 0%,80%,100%{transform:translateY(0);opacity:.4} 40%{transform:translateY(-8px);opacity:1} }
+
+    .stats-bar { display: none; font-family: 'Space Mono', monospace; font-size: .65rem; color: var(--muted); margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--border); gap: 20px; }
+    .stats-bar.visible { display: flex; }
+    .stat-val { color: var(--success); }
+
+    footer { margin-top: 44px; font-family: 'Space Mono', monospace; font-size: .65rem; color: var(--muted); text-align: center; letter-spacing: 1px; animation: fadeUp .8s ease both .3s; }
+    footer strong { color: var(--accent); }
+
+    @keyframes fadeDown { from{opacity:0;transform:translateY(-20px)} to{opacity:1;transform:translateY(0)} }
+    @keyframes fadeUp { from{opacity:0;transform:translateY(20px)} to{opacity:1;transform:translateY(0)} }
+  </style>
+</head>
+<body>
+<div class="wrapper">
+  <header>
+    <div class="logo-row">
+      <div class="logo-icon"><span></span></div>
+      <h1>NeuralDock</h1>
+    </div>
+    <p class="tagline">Serverless LLM Interface · DevOps Demo</p>
+    <div class="badges">
+      <span class="badge live">Live</span>
+      <span class="badge">Flask API</span>
+      <span class="badge">Gemini 2.0</span>
+      <span class="badge">Docker</span>
+      <span class="badge">Jenkins CI/CD</span>
+    </div>
+  </header>
+
+  <div class="card">
+    <div class="section-label">Prompt Input</div>
+    <textarea id="promptInput" class="input-area" placeholder="Ask anything… e.g. 'Explain Kubernetes in one paragraph'" oninput="updateCount()" onkeydown="handleKey(event)"></textarea>
+
+    <div class="controls">
+      <span class="char-count">Characters: <span id="charCount">0</span></span>
+      <div style="display:flex;gap:10px">
+        <button class="btn btn-clear" onclick="clearAll()">Clear</button>
+        <button id="submitBtn" class="btn btn-primary" onclick="generate()">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round">
+            <line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/>
+          </svg>
+          Generate
+        </button>
+      </div>
+    </div>
+
+    <div id="loader" class="loader">
+      <div class="dots"><span></span><span></span><span></span></div>
+      Querying Gemini API...
+    </div>
+
+    <div id="divider" class="divider" style="display:none">RESPONSE</div>
+
+    <div id="responseBox" class="response-box">
+      <div class="response-header">
+        <span class="model-tag">gemini-2.0-flash</span>
+        <button class="copy-btn" onclick="copyResponse()">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+            <rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/>
+          </svg>
+          Copy
+        </button>
+      </div>
+      <div id="responseText" class="response-text"></div>
+      <div id="statsBar" class="stats-bar">
+        <span class="stat">Time: <span class="stat-val" id="statTime">-</span></span>
+        <span class="stat">Words: <span class="stat-val" id="statWords">-</span></span>
+      </div>
+    </div>
+  </div>
+
+  <footer>
+    Architecture: <strong>User → HTML UI → Flask API → Gemini LLM</strong>
+    &nbsp;·&nbsp; Running on Docker &nbsp;·&nbsp; Built for DevOps Demo
+  </footer>
+</div>
+
+<script>
+  function updateCount() {
+    document.getElementById('charCount').textContent = document.getElementById('promptInput').value.length;
+  }
+  function handleKey(e) {
+    if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) generate();
+  }
+  function clearAll() {
+    document.getElementById('promptInput').value = '';
+    document.getElementById('charCount').textContent = '0';
+    document.getElementById('responseBox').classList.remove('visible');
+    document.getElementById('divider').style.display = 'none';
+    document.getElementById('statsBar').classList.remove('visible');
+  }
+  async function generate() {
+    const prompt = document.getElementById('promptInput').value.trim();
+    if (!prompt) { document.getElementById('promptInput').style.borderColor = 'var(--danger)'; setTimeout(() => document.getElementById('promptInput').style.borderColor = '', 800); return; }
+    const btn = document.getElementById('submitBtn');
+    const loader = document.getElementById('loader');
+    const resBox = document.getElementById('responseBox');
+    const resText = document.getElementById('responseText');
+    const divider = document.getElementById('divider');
+    const stats = document.getElementById('statsBar');
+    btn.disabled = true; loader.classList.add('visible');
+    resBox.classList.remove('visible'); divider.style.display = 'none'; stats.classList.remove('visible');
+    const t0 = Date.now();
+    try {
+      const resp = await fetch('/generate', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({prompt}) });
+      const data = await resp.json();
+      const elapsed = ((Date.now() - t0) / 1000).toFixed(2);
+      resText.classList.remove('error');
+      if (data.response) {
+        resText.textContent = data.response;
+        document.getElementById('statTime').textContent = elapsed + 's';
+        document.getElementById('statWords').textContent = data.response.split(/\s+/).filter(Boolean).length;
+        stats.classList.add('visible');
+      } else {
+        resText.textContent = 'Error: ' + (data.error || 'Unknown error');
+        resText.classList.add('error');
+      }
+      divider.style.display = ''; resBox.classList.add('visible');
+    } catch(err) {
+      resText.textContent = 'Network error: ' + err.message;
+      resText.classList.add('error');
+      divider.style.display = ''; resBox.classList.add('visible');
+    } finally {
+      loader.classList.remove('visible'); btn.disabled = false;
+    }
+  }
+  function copyResponse() {
+    navigator.clipboard.writeText(document.getElementById('responseText').textContent).then(() => {
+      const btn = document.querySelector('.copy-btn'); btn.textContent = 'Copied!';
+      setTimeout(() => btn.textContent = 'Copy', 2000);
+    });
+  }
+</script>
+</body>
+</html>
