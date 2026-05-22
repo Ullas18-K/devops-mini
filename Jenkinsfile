@@ -5,7 +5,7 @@ pipeline {
         IMAGE_NAME = "neuraldock-llm"
         CONTAINER_NAME = "neuraldock-app"
         APP_PORT = "5000"
-        BOT_WEBHOOK = "http://host.docker.internal:6000/jenkins-webhook"
+        BOT_WEBHOOK = "http://localhost:6000/jenkins-webhook"
         GEMINI_API_KEY = credentials('GEMINI_API_KEY')
     }
 
