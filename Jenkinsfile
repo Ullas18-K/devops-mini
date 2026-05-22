@@ -124,12 +124,19 @@ pipeline {
 
         failure {
             script {
-                // Capture the actual build log (last 200 lines which should contain the error)
+                // Capture the actual build log using currentBuild.rawBuild (requires approval)
+                // Alternative: Use environment variables and stage results
                 def buildLog = ""
                 try {
+                    // Try to get full console log (requires script approval)
                     buildLog = currentBuild.rawBuild.getLog(200).join('\n')
                 } catch (Exception e) {
-                    buildLog = "Could not retrieve build log: ${e.message}"
+                    // Fallback: Use currentBuild description which doesn't require approval
+                    buildLog = "Build failed at stage: ${env.STAGE_NAME}\n"
+                    buildLog += "Job: ${env.JOB_NAME} #${env.BUILD_NUMBER}\n"
+                    buildLog += "Error: ${e.message}\n"
+                    buildLog += "Note: Full log access requires Jenkins script approval.\n"
+                    buildLog += "Go to: Manage Jenkins -> In-process Script Approval"
                 }
 
                 // Escape special characters for JSON
